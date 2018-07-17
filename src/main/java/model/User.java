@@ -1,6 +1,11 @@
 package model;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class User {
+    private static final Logger logger =  LoggerFactory.getLogger(User.class);
+
     private String userId;
     private String password;
     private String name;
@@ -11,6 +16,7 @@ public class User {
         this.password = password;
         this.name = name;
         this.email = email;
+        logger.info("user객체 생성 : {}", toString());
     }
 
     public String getUserId() {
