@@ -39,10 +39,13 @@ public class RequestHandler extends Thread {
                 log.info("request info : {}", line);
                 if (line.contains("Content-Length"))
                     contentLength = getContentLength(line);
+
+                if (line.contains("Cookie"))
+                    checkCookie(line);
             }
             String url = arr[1];
-            log.info("url : {}", url);
 
+            // 유저생성
             if (("/user/create").equals(arr[1])) {
                 Map<String, String> params = HttpRequestUtils.parseQueryString(IOUtils.readData(br, contentLength));
                 User user = new User(params.get("userId"), params.get("password"), params.get("name"), params.get("email"));
@@ -52,48 +55,52 @@ public class RequestHandler extends Thread {
                 log.info("url : {}", url);
                 DataOutputStream dos = new DataOutputStream(out);
                 response302Header(dos, url);
-            }
-
-            if ("/user/login".equals(url)) {
+            } else if ("/user/login".equals(url)) {
                 log.info("login Controller called");
                 // 인자전달
                 Map<String, String> params = HttpRequestUtils.parseQueryString(IOUtils.readData(br, contentLength));
                 // 유저조회
                 User target = DataBase.findUserById(params.get("userId"));
+                log.info("target User : {}", target.toString());
 
                 if (target == null || !target.getPassword().equals(params.get("password"))) {
                     //loginFail
                     url = "/user/login_failed.html";
-                    log.info("loginFail called, url : {}", url);
-                    DataOutputStream dos = new DataOutputStream(out);
-                    response302Header(dos, url);
+                    responseResource(out, url);
+                    return;
                 }
 
-                log.info("target User : {}", target.toString());
                 if (target.getPassword().equals(params.get("password"))) {
                     log.info("login Success");
-                    // Header설정 쿠키설정하기
-
+                    DataOutputStream dos = new DataOutputStream(out);
+                    response302Login(dos);
                 }
+                DataOutputStream dos = new DataOutputStream(out);
+                response302Header(dos, url);
+            } else if ("/user/list".equals(url)) {
+                log.info("/user/list called");
 
-                // 로그인실패
-                log.info("if문 통과못함");
             }
 
-
-
+            responseResource(out, url);
             // TODO 사용자 요청에 대한 처리는 이 곳에 구현하면 된다.
             DataOutputStream dos = new DataOutputStream(out);
             byte[] body = Files.readAllBytes(new File("./webapp/" + arr[1]).toPath());
             response200Header(dos, body.length);
             responseBody(dos, body);
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error(e.getMessage());
         }
     }
 
     public Integer getContentLength(String line) {
         return Integer.parseInt(line.split(":")[1].trim());
+    }
+
+    public String checkCookie(String line) {
+        log.info("line is : {}", line);
+        System.out.println(line.split(":")[1].trim());
+        return "";
     }
 
     private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {
@@ -116,6 +123,25 @@ public class RequestHandler extends Thread {
         } catch (IOException e) {
             log.error(e.getMessage());
         }
+    }
+
+    private void response302Login(DataOutputStream dos) {
+        try {
+            log.info("302login called");
+            dos.writeBytes("HTTP/1.1 302 Found \r\n");
+            dos.writeBytes("Location: /index.html \r\n");
+            dos.writeBytes("Set-Cookie: logined=true \r\n");
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+    }
+
+    private void responseResource(OutputStream out, String url) throws Exception {
+            DataOutputStream dos = new DataOutputStream(out);
+            byte [] body = Files.readAllBytes(new File("./webapp/" + url).toPath());
+            response200Header(dos, body.length);
+            responseBody(dos, body);
     }
 
     private void responseBody(DataOutputStream dos, byte[] body) {
