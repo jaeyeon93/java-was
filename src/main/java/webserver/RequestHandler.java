@@ -40,17 +40,51 @@ public class RequestHandler extends Thread {
                 if (line.contains("Content-Length"))
                     contentLength = getContentLength(line);
             }
-            log.info("url : {}", arr[1]);
+            String url = arr[1];
+            log.info("url : {}", url);
+
             if (("/user/create").equals(arr[1])) {
-                Map<String, String> paramas = HttpRequestUtils.parseQueryString(IOUtils.readData(br, contentLength));
-                User user = new User(paramas.get("userId"), paramas.get("password"), paramas.get("name"), paramas.get("email"));
+                Map<String, String> params = HttpRequestUtils.parseQueryString(IOUtils.readData(br, contentLength));
+                User user = new User(params.get("userId"), params.get("password"), params.get("name"), params.get("email"));
+                DataBase.addUser(user);
                 log.info("user info on RequestHeader : {}", user.toString());
+                url = "/index.html";
+                log.info("url : {}", url);
+                DataOutputStream dos = new DataOutputStream(out);
+                response302Header(dos, url);
             }
+
+            if ("/user/login".equals(url)) {
+                log.info("login Controller called");
+                // 인자전달
+                Map<String, String> params = HttpRequestUtils.parseQueryString(IOUtils.readData(br, contentLength));
+                // 유저조회
+                User target = DataBase.findUserById(params.get("userId"));
+
+                if (target == null || !target.getPassword().equals(params.get("password"))) {
+                    //loginFail
+                    url = "/user/login_failed.html";
+                    log.info("loginFail called, url : {}", url);
+                    DataOutputStream dos = new DataOutputStream(out);
+                    response302Header(dos, url);
+                }
+
+                log.info("target User : {}", target.toString());
+                if (target.getPassword().equals(params.get("password"))) {
+                    log.info("login Success");
+                    // Header설정 쿠키설정하기
+
+                }
+
+                // 로그인실패
+                log.info("if문 통과못함");
+            }
+
+
 
             // TODO 사용자 요청에 대한 처리는 이 곳에 구현하면 된다.
             DataOutputStream dos = new DataOutputStream(out);
             byte[] body = Files.readAllBytes(new File("./webapp/" + arr[1]).toPath());
-            log.info("body : {}", body);
             response200Header(dos, body.length);
             responseBody(dos, body);
         } catch (IOException e) {
@@ -67,6 +101,17 @@ public class RequestHandler extends Thread {
             dos.writeBytes("HTTP/1.1 200 OK \r\n");
             dos.writeBytes("Content-Type: text/html;charset=utf-8\r\n");
             dos.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+    }
+
+    private void response302Header(DataOutputStream dos, String url) {
+        try {
+            log.info("302 redirect success");
+            dos.writeBytes("HTTP/1.1 302 Found \r\n");
+            dos.writeBytes("Location: " + url + " \r\n");
             dos.writeBytes("\r\n");
         } catch (IOException e) {
             log.error(e.getMessage());
